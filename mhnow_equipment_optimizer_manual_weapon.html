@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<title>MHNow 装備最適化</title>
+<style>
+:root{
+ --bg:#0b1020;--panel:#111827;--panel2:#172033;--text:#eef2ff;--muted:#9aa5bd;--line:#29344d;
+ --accent:#68e0c2;--accent2:#7aa7ff;--warn:#ffca67;--danger:#ff7b8b;
+ --atk:#ff7d6e;--elem:#66b8ff;--crit:#ffd465;--action:#8de3aa;--def:#a6a9ff;--status:#df92ff;--other:#aab2c6;
+}
+*{box-sizing:border-box}
+html{background:var(--bg)}body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:linear-gradient(160deg,#0b1020,#0e162b 48%,#0b1020);color:var(--text);min-height:100vh}
+button,input,select{font:inherit}
+.app{max-width:1050px;margin:auto;padding:14px 12px 100px}
+.hero{padding:16px 4px 8px}.hero h1{font-size:24px;margin:0}.hero p{font-size:13px;color:var(--muted);margin:5px 0 0;line-height:1.5}
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;position:sticky;top:0;z-index:20;padding:8px 0;background:rgba(11,16,32,.93);backdrop-filter:blur(10px)}
+.tab{border:1px solid var(--line);background:#111827;color:var(--muted);min-height:44px;border-radius:12px;font-weight:700}
+.tab.active{background:var(--accent);color:#07140f;border-color:transparent}
+.page{display:none}.page.active{display:block}
+.card{background:linear-gradient(145deg,var(--panel),#101827);border:1px solid var(--line);border-radius:18px;padding:15px;margin:10px 0}
+.card h2{font-size:16px;margin:0 0 12px}.section-title{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.badge{font-size:11px;padding:4px 7px;border-radius:999px;background:#24314a;color:#cbd5e1}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.field label{display:block;font-size:12px;color:var(--muted);margin:0 0 5px}
+select,input{width:100%;height:46px;border:1px solid #33415e;border-radius:11px;background:#0d1527;color:var(--text);padding:0 10px;font-size:16px}
+input[type=range]{padding:0}
+.weapon-card{display:grid;grid-template-columns:1fr auto;gap:10px;margin-top:12px;padding:12px;border-radius:14px;background:#0d1527;border:1px solid #263552}
+.weapon-name{font-weight:800}.weapon-stats{display:flex;gap:8px;flex-wrap:wrap;margin-top:7px}
+.stat{padding:6px 8px;border-radius:9px;background:#18243b;font-size:13px}.stat b{font-size:15px}
+.primary{width:100%;min-height:50px;border:0;border-radius:13px;background:linear-gradient(90deg,var(--accent),#5ed3f6);color:#061511;font-weight:900;font-size:16px}
+.secondary{min-height:42px;border:1px solid #40516f;border-radius:11px;background:#172238;color:#e4e9f5;font-weight:700;padding:0 12px}
+.danger{border-color:#663949;color:#ffbac3}
+.row{display:grid;grid-template-columns:minmax(0,1fr) 90px;gap:8px;margin:7px 0}
+.chips{display:flex;gap:6px;flex-wrap:wrap}.chip{font-size:12px;padding:5px 8px;border-radius:999px;border:1px solid transparent}
+.cat-攻撃{background:color-mix(in srgb,var(--atk) 20%,transparent);color:#ffb6ae;border-color:#713e3b}
+.cat-属性{background:color-mix(in srgb,var(--elem) 20%,transparent);color:#a9d7ff;border-color:#315d82}
+.cat-会心{background:color-mix(in srgb,var(--crit) 18%,transparent);color:#ffe6a1;border-color:#6a5830}
+.cat-アクション{background:color-mix(in srgb,var(--action) 18%,transparent);color:#baf2ca;border-color:#396548}
+.cat-防御{background:color-mix(in srgb,var(--def) 18%,transparent);color:#d0d2ff;border-color:#4a4d7c}
+.cat-状態異常{background:color-mix(in srgb,var(--status) 18%,transparent);color:#efc5ff;border-color:#654075}
+.cat-その他{background:#252e42;color:#c9d2e5;border-color:#3b465f}
+.result{margin:10px 0;padding:14px;border-radius:17px;background:linear-gradient(145deg,#111b31,#121a2b);border:1px solid #2b3a58}
+.result.top{border-color:#7f6940;background:linear-gradient(145deg,#1a1c29,#292319)}
+.result-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.rank{font-size:20px;font-weight:900}.score{font-size:12px;color:var(--muted);text-align:right}.score strong{display:block;color:#fff;font-size:20px}
+.gear{margin:10px 0;display:grid;grid-template-columns:repeat(5,1fr);gap:5px}.gear-item{min-width:0;background:#0b1426;padding:8px 5px;border-radius:10px;text-align:center}.gear-item small{display:block;color:#8190aa}.gear-item b{display:block;font-size:11px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.favbtn{background:none;border:0;color:#f5d06f;font-size:23px;padding:0;min-width:36px}
+.info{font-size:12px;color:var(--muted);line-height:1.6}.notice{font-size:12px;line-height:1.6;background:#1d2738;border-left:3px solid var(--warn);padding:10px;border-radius:8px}
+.empty{text-align:center;color:var(--muted);padding:30px 10px}
+.favorite{padding:12px;border-bottom:1px solid var(--line)}.favorite:last-child{border-bottom:0}
+.favorite-title{font-weight:800}.favorite-actions{display:flex;gap:7px;margin-top:8px}
+.dbrow{padding:10px 0;border-bottom:1px solid var(--line)}.dbrow:last-child{border:0}
+.kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:8px 0}.kpi div{background:#0c1527;border-radius:11px;padding:9px;text-align:center}.kpi b{display:block;font-size:18px}.kpi small{color:var(--muted)}
+.loader{display:none;text-align:center;padding:18px;color:var(--muted)}
+@media(max-width:650px){
+ .app{padding:8px 9px 90px}.hero h1{font-size:21px}.grid,.grid3{grid-template-columns:1fr}
+ .tabs{gap:4px}.tab{font-size:12px;padding:0 2px}
+ .gear{grid-template-columns:repeat(2,1fr)}.gear-item:last-child{grid-column:span 2}
+}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="hero">
+ <h1>MHNow 装備最適化</h1>
+ <p>実在防具5部位＋武器＋漂移錬成から、期待火力の高い構成を探索。</p>
+</header>
+
+<nav class="tabs">
+ <button class="tab active" data-page="settings">設定</button>
+ <button class="tab" data-page="results">結果</button>
+ <button class="tab" data-page="favorites">お気に入り</button>
+ <button class="tab" data-page="database">DB</button>
+</nav>
+
+<section class="page active" id="settings">
+ 
+<div class="card">
+  <div class="section-title"><h2>武器ステータス</h2><span class="badge">手入力</span></div>
+  <div class="grid">
+   <div class="field"><label>攻撃力</label><input id="manualAtk" type="number" value="1500" min="0"></div>
+   <div class="field"><label>属性値</label><input id="manualElem" type="number" value="1000" min="0"></div>
+   <div class="field"><label>会心率 (%)</label><input id="manualAffinity" type="number" value="0" min="-100" max="100"></div>
+   <div class="field"><label>武器属性</label><select id="manualElement"><option>火</option><option>水</option><option>雷</option><option>氷</option><option>龍</option><option>無属性</option></select></div>
+   <div class="field"><label>防具の評価グレード</label><select id="armorGrade"><option>6</option><option selected>8</option><option>10</option></select></div>
+  </div>
+  <h2 style="margin-top:14px">武器についているスキル</h2>
+  <div id="weaponSkillRows"></div>
+  <div class="info" style="margin-top:8px">武器固有スキルを最大3つまで入力。最終スキルLvに合算して装備探索します。</div>
+ </div>
+
+ <div class="card">
+  <h2>火力計算条件</h2>
+  <div class="grid">
+   <div class="field"><label>弱点部位を攻撃する割合</label><select id="weakRate"><option value=".25">25%</option><option value=".5" selected>50%</option><option value=".75">75%</option><option value="1">100%</option></select></div>
+   <div class="field"><label>条件付き火力スキルの稼働率</label><select id="uptime"><option value=".25">25%</option><option value=".5" selected>50%</option><option value=".75">75%</option><option value="1">100%</option></select></div>
+  </div>
+ </div>
+
+ <div class="card">
+  <div class="section-title"><h2>漂移錬成</h2><span class="badge">0～5</span></div>
+  <div class="field"><label>最適化する錬成スキル数</label><select id="driftCount"><option>0</option><option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option></select></div>
+  <div class="info" style="margin-top:7px">錬成可能スキルから、各装備構成ごとに最も火力が高くなる組み合わせを探索します。防具側に漂移スロットがない場合は、その部位には割り当てません。</div>
+ </div>
+
+ <div class="card">
+  <h2>絶対入れるスキル</h2>
+  <div id="requiredRows"></div>
+  <div class="info">防具・武器・錬成を合算した最終スキルLvで判定。</div>
+ </div>
+
+ <div class="card">
+  <h2>除外スキル</h2>
+  <div id="excludedRows"></div>
+  <div class="info">指定スキルが1Lvでも付く最終構成を除外。</div>
+ </div>
+
+ <button id="run" class="primary">最適装備を計算</button>
+ <div id="loader" class="loader">装備を探索中…</div>
+</section>
+
+<section class="page" id="results">
+ <div class="card">
+  <div class="section-title"><h2>最適構成 TOP10</h2><span id="comboCount" class="badge">未計算</span></div>
+  <div id="resultList" class="empty">設定画面から計算してください。</div>
+ </div>
+</section>
+
+<section class="page" id="favorites">
+ <div class="card">
+  <div class="section-title"><h2>お気に入り</h2><span class="badge">端末保存</span></div>
+  <div id="favoriteList"></div>
+ </div>
+</section>
+
+<section class="page" id="database">
+ <div class="card">
+  <h2>収録データ</h2>
+  <div class="kpi"><div><b id="armorCount"></b><small>防具</small></div><div><b id="skillCount"></b><small>スキル</small></div><div><b>手入力</b><small>武器</small></div></div>
+  <div class="notice">現版は防具探索エンジンのβ版。武器は手入力、防具DBは火力候補を中心に収録しています。DBを増やせば探索ロジックはそのまま全装備へ拡張できます。</div>
+ </div>
+ <div class="card">
+  <h2>防具DB</h2>
+  <div id="armorDb"></div>
+ </div>
+</section>
+</div>
+
+<script>
+const DB={"weapons": [{"id": "zinogre_lbg", "family": "ジンオウガ", "name": "王弩ライカン / 王牙弩【野雷】", "type": "ライトボウガン", "element": "雷", "affinity": 0, "stats": {"5.1": [361, 232], "6.1": [461, 320], "7.1": [589, 443], "8.1": [751, 608], "9.1": [958, 835], "10.1": [1221, 1142], "10.5": [1463, 1420]}, "skills": [{"grade": 8, "name": "ジャスト回避強化", "lv": 1}]}, {"id": "zinogre_ls", "family": "ジンオウガ", "name": "王刀ライキリ / 王牙刀【伏雷】", "type": "太刀", "element": "雷", "affinity": 0, "stats": {"5.1": [361, 232], "6.1": [461, 320], "7.1": [589, 443], "8.1": [751, 608], "9.1": [958, 835], "10.1": [1221, 1142], "10.5": [1463, 1420]}, "skills": [{"grade": 8, "name": "ジャスト回避強化", "lv": 1}]}, {"id": "zinogre_db", "family": "ジンオウガ", "name": "王双刃ハタタカミ / 王牙双刃【土雷】", "type": "双剣", "element": "雷", "affinity": 0, "stats": {"5.1": [361, 232], "6.1": [461, 320], "7.1": [589, 443], "8.1": [751, 608], "9.1": [958, 835], "10.1": [1221, 1142], "10.5": [1463, 1420]}, "skills": [{"grade": 8, "name": "ジャスト回避強化", "lv": 1}]}, {"id": "zinogre_sns", "family": "ジンオウガ", "name": "王剣シツライ / 王牙剣【折雷】", "type": "片手剣", "element": "雷", "affinity": 0, "stats": {"5.1": [361, 232], "6.1": [461, 320], "7.1": [589, 443], "8.1": [751, 608], "9.1": [958, 835], "10.1": [1221, 1142], "10.5": [1463, 1420]}, "skills": [{"grade": 8, "name": "ジャスト回避強化", "lv": 1}]}, {"id": "stygian_lbg", "family": "ジンオウガ亜種", "name": "獄弩リュウシン / 獄弩リュウゼツ", "type": "ライトボウガン", "element": "龍", "affinity": 0, "stats": {"5.1": [366, 228], "6.1": [468, 320], "7.1": [600, 449], "8.1": [768, 626], "9.1": [982, 873], "10.1": [1257, 1212], "10.5": [1506, 1506]}, "skills": [{"grade": 5, "name": "龍属性攻撃強化", "lv": 1}, {"grade": 8, "name": "龍属性攻撃強化・境地", "lv": 1}]}, {"id": "stygian_cb", "family": "ジンオウガ亜種", "name": "獄盾斧リュウケン / 狼牙盾斧【呪獄】", "type": "チャージアックス", "element": "龍", "affinity": 0, "stats": {"5.1": [366, 228], "6.1": [468, 320], "7.1": [600, 449], "8.1": [768, 626], "9.1": [982, 873], "10.1": [1257, 1212], "10.5": [1506, 1506]}, "skills": [{"grade": 5, "name": "龍属性攻撃強化", "lv": 1}, {"grade": 8, "name": "龍属性攻撃強化・境地", "lv": 1}]}, {"id": "stygian_hbg", "family": "ジンオウガ亜種", "name": "獄砲リュウコウ / 狼牙砲【獣獄】", "type": "ヘビィボウガン", "element": "龍", "affinity": 0, "stats": {"5.1": [366, 228], "6.1": [468, 320], "7.1": [600, 449], "8.1": [768, 626], "9.1": [982, 873], "10.1": [1257, 1212], "10.5": [1506, 1506]}, "skills": [{"grade": 5, "name": "龍属性攻撃強化", "lv": 1}, {"grade": 8, "name": "龍属性攻撃強化・境地", "lv": 1}]}], "armors": [{"id": "silver_head", "name": "シルバーソルヘルム", "part": "頭", "minGrade": 6, "driftGrade": 8, "unlocks": [[6, "会心撃【属性】", 1], [8, "会心撃【属性】", 1]]}, {"id": "nerg_head", "name": "オーグヘルム", "part": "頭", "minGrade": 6, "driftGrade": 8, "unlocks": [[6, "滅尽龍の渇望", 1], [6, "見切り", 2], [8, "ジャスト回避強化", 1]]}, {"id": "rathalos_head", "name": "レウスヘルム", "part": "頭", "minGrade": 5, "driftGrade": 8, "unlocks": [[5, "攻撃", 2], [6, "火属性攻撃強化", 1]]}, {"id": "stygian_head", "name": "獄狼竜ヘルム", "part": "頭", "minGrade": 5, "driftGrade": 5, "unlocks": [[5, "龍属性攻撃強化・境地", 1], [5, "龍属性攻撃強化", 1], [8, "龍属性攻撃強化", 1]]}, {"id": "rathian_head", "name": "レイアヘルム", "part": "頭", "minGrade": 4, "driftGrade": 5, "unlocks": [[4, "体力増強", 2], [6, "毒属性強化", 1]]}, {"id": "silver_chest", "name": "シルバーソルメイル", "part": "胴", "minGrade": 6, "driftGrade": 8, "unlocks": [[6, "火属性攻撃強化", 1], [8, "超会心", 1]]}, {"id": "rajang_chest", "name": "金色ノ羽織", "part": "胴", "minGrade": 5, "driftGrade": 7, "unlocks": [[5, "闘気活性", 1], [6, "SPゲージ加速", 1]]}, {"id": "alloy_chest", "name": "アロイメイル", "part": "胴", "minGrade": 2, "driftGrade": 5, "unlocks": [[3, "耐震", 1], [6, "耐震", 1]]}, {"id": "silver_arms", "name": "シルバーソルアーム", "part": "腕", "minGrade": 6, "driftGrade": 8, "unlocks": [[6, "力の解放", 2]]}, {"id": "rajang_arms", "name": "金色ノ篭手", "part": "腕", "minGrade": 5, "driftGrade": 8, "unlocks": [[5, "闘気活性", 1], [6, "闘気活性", 1]]}, {"id": "nerg_arms", "name": "オーグアーム", "part": "腕", "minGrade": 6, "driftGrade": 8, "unlocks": [[6, "滅尽龍の渇望", 1], [6, "攻めの守勢", 1], [8, "ガード性能", 1]]}, {"id": "mizuha_arms", "name": "ミヅハアーム", "part": "腕", "minGrade": 6, "driftGrade": 6, "unlocks": [[6, "霞龍の毒霧", 1], [6, "勇猛", 1], [8, "勇猛", 1]]}, {"id": "nerg_waist", "name": "オーグコイル", "part": "腰", "minGrade": 6, "driftGrade": 8, "unlocks": [[6, "滅尽龍の渇望", 1], [6, "攻撃", 2], [8, "破壊王", 1]]}, {"id": "rajang_waist", "name": "金色ノ帯", "part": "腰", "minGrade": 5, "driftGrade": 99, "unlocks": [[5, "集中", 1], [6, "集中", 1], [8, "集中", 1]]}, {"id": "magna_waist", "name": "禍鎧【腰当て】", "part": "腰", "minGrade": 4, "driftGrade": 6, "driftSlotsAt8": 2, "unlocks": [[4, "爆破やられ耐性", 1], [6, "鬼火纏", 1]]}, {"id": "silver_legs", "name": "シルバーソルグリーヴ", "part": "脚", "minGrade": 6, "driftGrade": 8, "unlocks": [[6, "会心撃【属性】", 1], [8, "弱点特効", 1]]}, {"id": "nerg_legs", "name": "オーググリーヴ", "part": "脚", "minGrade": 6, "driftGrade": 8, "unlocks": [[6, "滅尽龍の渇望", 1], [6, "装填速度", 1], [8, "反動軽減", 1]]}, {"id": "rajang_legs", "name": "金色ノ袴", "part": "脚", "minGrade": 5, "driftGrade": 8, "unlocks": [[5, "逆恨み", 1], [6, "逆恨み", 1], [8, "耐震", 1]]}, {"id": "odo_legs", "name": "オドガロングリーヴ", "part": "脚", "minGrade": 4, "driftGrade": 5, "unlocks": [[4, "回避装填", 1], [6, "回避装填", 1]]}], "skills": {"攻撃": {"cat": "攻撃", "type": "atkFlat", "vals": [50, 100, 150, 200, 300]}, "火属性攻撃強化": {"cat": "属性", "type": "elemFlat", "element": "火", "vals": [50, 100, 200, 350, 500]}, "雷属性攻撃強化": {"cat": "属性", "type": "elemFlat", "element": "雷", "vals": [50, 100, 200, 350, 500]}, "水属性攻撃強化": {"cat": "属性", "type": "elemFlat", "element": "水", "vals": [50, 100, 200, 350, 500]}, "氷属性攻撃強化": {"cat": "属性", "type": "elemFlat", "element": "氷", "vals": [50, 100, 200, 350, 500]}, "龍属性攻撃強化": {"cat": "属性", "type": "elemFlat", "element": "龍", "vals": [50, 100, 200, 350, 500]}, "龍属性攻撃強化・境地": {"cat": "属性", "type": "elemAdvanced", "element": "龍", "vals": [200, 400], "requires": ["龍属性攻撃強化", 5]}, "見切り": {"cat": "会心", "type": "crit", "vals": [0.1, 0.15, 0.2, 0.3, 0.4]}, "弱点特効": {"cat": "会心", "type": "wex", "vals": [0.2, 0.25, 0.3, 0.4, 0.5]}, "超会心": {"cat": "会心", "type": "critMult", "vals": [1.3, 1.35, 1.4, 1.45, 1.5]}, "会心撃【属性】": {"cat": "会心", "type": "critElem", "vals": [0.3, 0.4, 0.5, 0.6, 0.8]}, "力の解放": {"cat": "会心", "type": "critConditional", "vals": [0.2, 0.3, 0.4, 0.5, 0.6]}, "闘気活性": {"cat": "攻撃", "type": "dmgPct", "vals": [0.1, 0.15, 0.2, 0.25, 0.35]}, "滅尽龍の渇望": {"cat": "攻撃", "type": "dmgPct", "vals": [0.1, 0.15, 0.2]}, "攻めの守勢": {"cat": "攻撃", "type": "atkPct", "vals": [0.1, 0.15, 0.2, 0.3, 0.4]}, "逆恨み": {"cat": "攻撃", "type": "atkPct", "vals": [0.1, 0.15, 0.2, 0.3, 0.4]}, "勇猛": {"cat": "攻撃", "type": "atkFlatConditional", "vals": [400, 550, 700, 850, 1000]}, "集中": {"cat": "アクション", "type": "utility", "vals": [0, 0, 0, 0, 0]}, "SPゲージ加速": {"cat": "アクション", "type": "utility", "vals": [0, 0, 0]}, "破壊王": {"cat": "アクション", "type": "utility", "vals": [0, 0, 0, 0, 0]}, "装填速度": {"cat": "アクション", "type": "utility", "vals": [0, 0, 0]}, "反動軽減": {"cat": "アクション", "type": "utility", "vals": [0, 0, 0]}, "ジャスト回避強化": {"cat": "アクション", "type": "utility", "vals": [0, 0, 0]}, "回避装填": {"cat": "アクション", "type": "utility", "vals": [0, 0, 0]}, "ガード性能": {"cat": "防御", "type": "utility", "vals": [0, 0, 0, 0, 0]}, "耐震": {"cat": "防御", "type": "utility", "vals": [0, 0, 0]}, "体力増強": {"cat": "防御", "type": "utility", "vals": [0, 0, 0, 0, 0]}, "毒属性強化": {"cat": "状態異常", "type": "utility", "vals": [0, 0, 0, 0, 0]}, "鬼火纏": {"cat": "その他", "type": "utility", "vals": [0, 0, 0, 0, 0]}, "爆破やられ耐性": {"cat": "防御", "type": "utility", "vals": [0, 0, 0]}, "霞龍の毒霧": {"cat": "状態異常", "type": "utility", "vals": [0, 0, 0]}}, "driftSkills": ["攻撃", "火属性攻撃強化", "水属性攻撃強化", "雷属性攻撃強化", "氷属性攻撃強化", "龍属性攻撃強化", "見切り", "弱点特効", "超会心", "闘気活性", "攻めの守勢", "逆恨み", "集中"]};
+const PARTS=["頭","胴","腕","腰","脚"];
+let lastResults=[];
+
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function cat(name){return DB.skills[name]?.cat||"その他"}
+function addSkill(obj,name,lv){obj[name]=(obj[name]||0)+lv}
+function skillOptions(){
+ const names=[...new Set([...Object.keys(DB.skills),...DB.armors.flatMap(a=>a.unlocks.map(x=>x[1]))])].sort((a,b)=>a.localeCompare(b,"ja"));
+ return '<option value="">指定なし</option>'+names.map(x=>`<option>${esc(x)}</option>`).join("");
+}
+
+function initWeaponSkillRows(){
+ for(let i=0;i<3;i++) $("weaponSkillRows").insertAdjacentHTML("beforeend",`<div class="row"><select class="weaponSkill">${skillOptions()}</select><select class="weaponSkillLv"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>`);
+}
+function manualWeapon(){
+ return {
+   name:"手入力武器",
+   type:"手入力",
+   element:$("manualElement").value,
+   affinity:+$("manualAffinity").value||0,
+   stats:{"manual":[Math.max(0,+$("manualAtk").value||0),Math.max(0,+$("manualElem").value||0)]},
+   skills:[]
+ };
+}
+function manualWeaponSkills(){
+ const o={}, ss=[...document.querySelectorAll(".weaponSkill")], ls=[...document.querySelectorAll(".weaponSkillLv")];
+ for(let i=0;i<ss.length;i++) if(ss[i].value) addSkill(o,ss[i].value,+ls[i].value);
+ return o;
+}
+
+function initRows(){
+ for(let i=0;i<4;i++) $("requiredRows").insertAdjacentHTML("beforeend",`<div class="row"><select class="reqSkill">${skillOptions()}</select><select class="reqLv"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>`);
+ for(let i=0;i<5;i++) $("excludedRows").insertAdjacentHTML("beforeend",`<div class="field" style="margin:7px 0"><select class="excSkill">${skillOptions()}</select></div>`);
+}
+
+
+
+
+
+function armorSkills(a,grade){
+ const o={}; for(const [g,n,l] of a.unlocks) if(grade>=g)addSkill(o,n,l); return o;
+}
+function driftSlots(a,grade){
+ if(a.driftSlotsAt8 && grade>=8)return a.driftSlotsAt8;
+ return grade>=a.driftGrade?1:0;
+}
+function mergeSkills(...objs){const o={};for(const x of objs)for(const [n,l] of Object.entries(x))addSkill(o,n,l);return o}
+function capSkills(s){const o={};for(const [n,l] of Object.entries(s))o[n]=Math.min(5,l);return o}
+function calcScore(skills,w,k,weak,uptime){
+ const [baseAtk,baseElem]=w.stats[k]; let atk=baseAtk,elem=baseElem,crit=w.affinity/100,critWeak=0,critMult=1.25,critElem=0,dmg=0,atkPct=0;
+ for(const [name,lv0] of Object.entries(skills)){
+   const d=DB.skills[name]; if(!d)continue; const lv=Math.min(lv0,d.vals.length),v=d.vals[lv-1]; if(v==null)continue;
+   if(d.type==="atkFlat")atk+=v;
+   else if(d.type==="elemFlat"&&d.element===w.element)elem+=v;
+   else if(d.type==="elemAdvanced"&&d.element===w.element){
+     const [rn,rl]=d.requires||[]; if((skills[rn]||0)>=rl)elem+=v;
+   }
+   else if(d.type==="crit")crit+=v;
+   else if(d.type==="wex")critWeak+=v;
+   else if(d.type==="critMult")critMult=v;
+   else if(d.type==="critElem")critElem=v;
+   else if(d.type==="critConditional")crit+=v*uptime;
+   else if(d.type==="dmgPct")dmg+=v*uptime;
+   else if(d.type==="atkPct")atkPct+=v*uptime;
+   else if(d.type==="atkFlatConditional")atk+=v*uptime;
+ }
+ atk*=1+atkPct;
+ function zone(c){
+   c=Math.max(-1,Math.min(1,c));
+   const cf=c>=0?1+c*(critMult-1):1+c*.25;
+   const elemExtra=c>0?elem*c*critElem:0;
+   return (atk+elem)*cf+elemExtra;
+ }
+ const non=zone(crit),wk=zone(crit+critWeak);
+ return ((1-weak)*non+weak*wk)*(1+dmg);
+}
+function chip(n,l){return `<span class="chip cat-${esc(cat(n))}">${esc(n)} Lv${l}</span>`}
+function requiredFilter(skills){
+ const ss=[...document.querySelectorAll(".reqSkill")], ls=[...document.querySelectorAll(".reqLv")];
+ for(let i=0;i<ss.length;i++)if(ss[i].value && (skills[ss[i].value]||0)<+ls[i].value)return false;
+ return true;
+}
+function excludedFilter(skills){
+ for(const e of document.querySelectorAll(".excSkill"))if(e.value&&(skills[e.value]||0)>0)return false;
+ return true;
+}
+function bestDrifts(base,slots,count,w,k,weak,uptime){
+ count=Math.min(count,slots); if(count<=0)return {skills:base,drifts:[],score:calcScore(base,w,k,weak,uptime)};
+ let beam=[{skills:{...base},drifts:[],score:calcScore(base,w,k,weak,uptime)}];
+ const candidates=DB.driftSkills.filter(n=>{
+   const d=DB.skills[n]; return !d?.element||d.element===w.element;
+ });
+ for(let step=0;step<count;step++){
+   const next=[];
+   for(const state of beam)for(const n of candidates){
+     const d=DB.skills[n]; const mx=d?.vals?.length||5;
+     if((state.skills[n]||0)>=mx)continue;
+     const s={...state.skills};addSkill(s,n,1);
+     next.push({skills:s,drifts:[...state.drifts,n],score:calcScore(s,w,k,weak,uptime)});
+   }
+   next.sort((a,b)=>b.score-a.score);
+   const unique=new Map();
+   for(const x of next){const key=Object.entries(x.skills).sort().map(z=>z.join(":")).join("|");if(!unique.has(key))unique.set(key,x);if(unique.size>=25)break}
+   beam=[...unique.values()].slice(0,12);
+ }
+ return beam[0]||{skills:base,drifts:[],score:calcScore(base,w,k,weak,uptime)};
+}
+function optimize(){
+ const w=manualWeapon(),k="manual",grade=+$("armorGrade").value,weak=+$("weakRate").value,uptime=+$("uptime").value,dc=+$("driftCount").value;
+ const groups={};for(const p of PARTS)groups[p]=DB.armors.filter(a=>a.part===p&&grade>=a.minGrade);
+ const total=PARTS.reduce((m,p)=>m*groups[p].length,1);
+ const weaponS=manualWeaponSkills(), results=[];
+ for(const h of groups["頭"])for(const c of groups["胴"])for(const a of groups["腕"])for(const wa of groups["腰"])for(const l of groups["脚"]){
+   const pieces=[h,c,a,wa,l];
+   let s=mergeSkills(weaponS,...pieces.map(x=>armorSkills(x,grade))); s=capSkills(s);
+   const slots=pieces.reduce((x,p)=>x+driftSlots(p,grade),0);
+   const opt=bestDrifts(s,slots,dc,w,k,weak,uptime); const final=capSkills(opt.skills);
+   if(!requiredFilter(final)||!excludedFilter(final))continue;
+   results.push({pieces,skills:final,drifts:opt.drifts,score:opt.score,slots});
+ }
+ results.sort((a,b)=>b.score-a.score);
+ return {results:results.slice(0,10),total,w,k,weak,uptime,grade};
+}
+function renderResults(data){
+ lastResults=data.results;
+ $("comboCount").textContent=`${data.total.toLocaleString()}構成評価`;
+ if(!data.results.length){$("resultList").innerHTML='<div class="empty">条件に合う構成がありません。</div>';return}
+ const base=calcScore(manualWeaponSkills(),data.w,data.k,data.weak,data.uptime);
+ $("resultList").innerHTML=data.results.map((r,i)=>{
+  const pct=(r.score/base-1)*100;
+  return `<article class="result ${i===0?"top":""}">
+   <div class="result-head"><div><span class="rank">${i+1}位</span><div class="score" style="text-align:left;margin-top:3px">武器のみ比 +${pct.toFixed(2)}%</div></div>
+   <div style="display:flex;align-items:center"><div class="score">期待スコア<strong>${r.score.toFixed(1)}</strong></div><button class="favbtn" data-fav="${i}" title="お気に入り">☆</button></div></div>
+   <div class="gear">${r.pieces.map(p=>`<div class="gear-item"><small>${p.part}</small><b>${esc(p.name)}</b></div>`).join("")}</div>
+   ${r.drifts.length?`<div class="info">錬成：${r.drifts.map(esc).join(" / ")}</div>`:""}
+   <div class="chips" style="margin-top:9px">${Object.entries(r.skills).sort((x,y)=>cat(x[0]).localeCompare(cat(y[0]),"ja")).map(([n,l])=>chip(n,l)).join("")}</div>
+  </article>`;
+ }).join("");
+ document.querySelectorAll("[data-fav]").forEach(b=>b.addEventListener("click",()=>saveFavorite(+b.dataset.fav,data)));
+}
+function saveFavorite(i,data){
+ const r=data.results[i]; const favs=JSON.parse(localStorage.getItem("mhnow_favs")||"[]");
+ favs.unshift({id:Date.now(),date:new Date().toLocaleString("ja-JP"),weapon:"手入力武器",level:"manual",score:r.score,pieces:r.pieces.map(x=>x.name),skills:r.skills,drifts:r.drifts});
+ localStorage.setItem("mhnow_favs",JSON.stringify(favs.slice(0,30)));renderFavorites();alert("お気に入りに保存しました");
+}
+function renderFavorites(){
+ const favs=JSON.parse(localStorage.getItem("mhnow_favs")||"[]");
+ if(!favs.length){$("favoriteList").innerHTML='<div class="empty">まだ保存されていません。</div>';return}
+ $("favoriteList").innerHTML=favs.map((f,i)=>`<div class="favorite"><div class="favorite-title">★ ${esc(f.weapon)}</div><div class="info">${f.pieces.map(esc).join(" / ")}</div><div class="chips" style="margin-top:7px">${Object.entries(f.skills).map(([n,l])=>chip(n,l)).join("")}</div><div class="favorite-actions"><button class="secondary danger" data-del="${i}">削除</button></div></div>`).join("");
+ document.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click",()=>{favs.splice(+b.dataset.del,1);localStorage.setItem("mhnow_favs",JSON.stringify(favs));renderFavorites()}));
+}
+function renderDb(){
+ $("armorCount").textContent=DB.armors.length;$("skillCount").textContent=Object.keys(DB.skills).length;
+ $("armorDb").innerHTML=PARTS.map(p=>`<div class="dbrow"><b>${p}</b><div class="chips" style="margin-top:7px">${DB.armors.filter(a=>a.part===p).map(a=>`<span class="badge">${esc(a.name)}</span>`).join("")}</div></div>`).join("");
+}
+function showPage(id){
+ document.querySelectorAll(".page").forEach(x=>x.classList.toggle("active",x.id===id));
+ document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x.dataset.page===id));
+ window.scrollTo({top:0,behavior:"smooth"});
+}
+document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>showPage(b.dataset.page)));
+$("run").addEventListener("click",()=>{
+ $("loader").style.display="block"; $("run").disabled=true;
+ setTimeout(()=>{try{const d=optimize();renderResults(d);showPage("results")}finally{$("loader").style.display="none";$("run").disabled=false}},20);
+});
+initRows();initWeaponSkillRows();renderFavorites();renderDb();
+</script>
+</body>
+</html>
