@@ -106,12 +106,49 @@ function namedSave(key,name,data){name=(name||'').trim();if(!name){alert('プリ
 function namedDelete(key,name){if(!name)return;let all=storageGet(key,{});delete all[name];storageSet(key,all);renderPresetSelects()}
 function fillPresetSelect(id,key){let el=$(id),all=storageGet(key,{}),cur=el.value;let names=Object.keys(all).sort((a,b)=>a.localeCompare(b,'ja'));el.innerHTML='<option value="">'+(names.length?'選択してください':'保存済みなし')+'</option>'+names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');if(names.includes(cur))el.value=cur}
 function renderPresetSelects(){fillPresetSelect('weaponPresetSelect','weaponPresets');fillPresetSelect('candidatePresetSelect','candidatePresets');fillPresetSelect('specPresetSelect','specPresets')}
+
+function syncPresetState(){
+ let base=currentBase();
+ // 古い/不正な保存値を落とし、現在の武器・属性で有効なものだけ復元する。
+ state.candidate=new Set([...state.candidate].filter(n=>DB.skills[n]&&validity(n,base).ok));
+ for(let n of Object.keys(state.weapon)){
+  if(!DB.skills[n]||!validity(n,base).ok){delete state.weapon[n];continue}
+  state.weapon[n]=Math.min(maxLv(n),Math.max(1,Number(state.weapon[n])||1));
+ }
+ let normalizedRequired={};
+ for(let[n,l]of Object.entries(state.required||{})){
+  if(!DB.skills[n]||!validity(n,base).ok)continue;
+  normalizedRequired[n]=Math.min(maxLv(n),Math.max(1,Number(l)||1));
+ }
+ state.required=normalizedRequired;
+ state.excluded=new Set([...state.excluded].filter(n=>DB.skills[n]));
+ // 手動で「必須に追加」した時と同じく、必須スキルは必ず探索候補にも含める。
+ // 境地などの前提条件も required/candidate の双方へ再帰的に同期する。
+ let queue=Object.keys(state.required),seen=new Set();
+ while(queue.length){
+  let n=queue.shift();if(seen.has(n))continue;seen.add(n);
+  if(validity(n,base).ok)state.candidate.add(n);
+  let m=DB.skills[n];
+  if(!m?.requires)continue;
+  for(let[k,q]of Object.entries(m.requires)){
+   if(!DB.skills[k]||!validity(k,base).ok)continue;
+   state.required[k]=Math.max(state.required[k]||0,q);
+   state.candidate.add(k);
+   queue.push(k);
+  }
+ }
+ // 候補側の境地等についても前提候補を補う。
+ for(let n of [...state.candidate])ensurePrereqsSelected(n);
+ // 手動で除外へ追加した時と同じく、除外スキル自体は候補から外す。
+ for(let n of state.excluded)state.candidate.delete(n);
+}
+
 function saveWeaponPreset(){namedSave('weaponPresets',$('weaponPresetName').value,{type:$('weaponType').value,element:$('element').value,atk:+$('atk').value||0,elem:+$('elem').value||0,aff:+$('aff').value||0,weapon:{...state.weapon}})}
-function loadWeaponPreset(){let n=$('weaponPresetSelect').value,d=storageGet('weaponPresets',{})[n];if(!d)return;$('weaponPresetName').value=n;$('weaponType').value=d.type;$('element').value=d.element;$('atk').value=d.atk;$('elem').value=d.elem;$('aff').value=d.aff;state.weapon={...(d.weapon||{})};refreshForWeapon();renderSpecChips();updateManualScore()}
+function loadWeaponPreset(){let n=$('weaponPresetSelect').value,d=storageGet('weaponPresets',{})[n];if(!d)return;$('weaponPresetName').value=n;$('weaponType').value=d.type;$('element').value=d.element;$('atk').value=d.atk;$('elem').value=d.elem;$('aff').value=d.aff;state.weapon={...(d.weapon||{})};refreshForWeapon();syncPresetState();renderCatalog();renderSpecChips();updateManualScore()}
 function saveCandidatePreset(){namedSave('candidatePresets',$('candidatePresetName').value,{candidate:[...state.candidate]})}
-function loadCandidatePreset(){let n=$('candidatePresetSelect').value,d=storageGet('candidatePresets',{})[n];if(!d)return;$('candidatePresetName').value=n;state.candidate=new Set((d.candidate||[]).filter(x=>validity(x).ok));for(let x of [...state.candidate])ensurePrereqsSelected(x);renderCatalog()}
+function loadCandidatePreset(){let n=$('candidatePresetSelect').value,d=storageGet('candidatePresets',{})[n];if(!d)return;$('candidatePresetName').value=n;state.candidate=new Set(Array.isArray(d.candidate)?d.candidate:[]);syncPresetState();renderCatalog();renderSpecChips();updateManualScore()}
 function saveSpecPreset(){namedSave('specPresets',$('specPresetName').value,{required:{...state.required},excluded:[...state.excluded]})}
-function loadSpecPreset(){let n=$('specPresetSelect').value,d=storageGet('specPresets',{})[n];if(!d)return;$('specPresetName').value=n;state.required={};for(let[k,v]of Object.entries(d.required||{}))if(validity(k).ok)state.required[k]=v;state.excluded=new Set(d.excluded||[]);renderSpecChips();renderCatalog()}
+function loadSpecPreset(){let n=$('specPresetSelect').value,d=storageGet('specPresets',{})[n];if(!d)return;$('specPresetName').value=n;state.required={...(d.required||{})};state.excluded=new Set(Array.isArray(d.excluded)?d.excluded:[]);syncPresetState();renderSpecChips();renderCatalog();updateManualScore()}
 function showArmorTip(e,a){let t=$('tooltip');t.innerHTML=`<b>${esc(a.name)}</b><div class="armor-monster">${esc(a.monster)} / ${esc(a.part)}</div><div class="armor-skills">${Object.entries(a.skills).map(([n,l])=>`<div class="armor-skill"><span class="cat-${esc(DB.skills[n]?.displayCat||'その他')}">${esc(n)}</span> Lv${l}</div>`).join('')||'<div class="small">スキルなし</div>'}</div><div class="small" style="margin-top:6px">漂移錬成枠: ${a.slots||0}</div>`;t.style.display='block';let x=e.clientX+14,y=e.clientY+14;requestAnimationFrame(()=>{if(x+t.offsetWidth>innerWidth-10)x=e.clientX-t.offsetWidth-14;if(y+t.offsetHeight>innerHeight-10)y=e.clientY-t.offsetHeight-14;t.style.left=x+'px';t.style.top=y+'px'})}
 function bindArmorTips(root=document){root.querySelectorAll('[data-armor-name]').forEach(el=>{let a=DB.armors.find(x=>x.name===el.dataset.armorName&&(!el.dataset.armorPart||x.part===el.dataset.armorPart));if(!a)return;el.addEventListener('mouseenter',e=>showArmorTip(e,a));el.addEventListener('mousemove',e=>showArmorTip(e,a));el.addEventListener('mouseleave',hideTip)})}
 function favoriteDefaultName(x,i,s){return `${s.element} ${s.type} / ${i+1}位 / ${new Date().toLocaleDateString('ja-JP')}`}
@@ -128,11 +165,11 @@ function selectedManualArmors(){return PARTS.map(p=>{let n=$('manual_'+p)?.value
 function updateManualScore(){if(!$('manualScore'))return;let s=currentSettings(),base=calc(s.weaponSkills,s).score,skills={...s.weaponSkills},label='';if(manualMode()==='armor'){let arr=selectedManualArmors();skills=mergeSkills(skills,...arr.map(a=>a.skills));label=arr.length?arr.map(a=>`${a.part}: ${a.monster} / ${a.name}`).join('<br>'):'防具を選択してください。'}else{skills=mergeSkills(skills,state.manualSkills);label=Object.keys(state.manualSkills).length?'直接指定したスキルを評価中':'スキルを追加してください。'}let c=calc(skills,s),best=lastRunData?.results?.[0]?.score||0;$('manualScore').textContent=c.score.toFixed(1);$('manualVsWeapon').textContent=(base?((c.score/base-1)*100):0).toFixed(2)+'%';$('manualVsBest').textContent=best?((c.score/best-1)*100).toFixed(2)+'%':'未探索';$('manualDetails').innerHTML=`<div class="manual-selected">${label}</div><div style="margin-top:6px">${Object.entries(skills).sort((a,b)=>(DB.skills[a[0]]?.displayCat||'').localeCompare(DB.skills[b[0]]?.displayCat||'','ja')).map(([n,l])=>skillChip(n,l,skills,s)).join('')}</div>`}
 function bindResultExtras(){document.querySelectorAll('[data-save-fav]').forEach(b=>b.onclick=()=>saveFavorite(+b.dataset.saveFav));bindArmorTips($('results'))}
 function renderResults(d){lastRunData=d;let r=d.results;$('resultBadge').textContent=`${r.length}件 / ${d.expanded.toLocaleString()}展開`;$('summary').innerHTML=`<div class="summary"><div><b>${[...state.candidate].length}</b><small>候補スキル</small></div>${PARTS.map(p=>`<div><b>${d.groups[p].length}</b><small>${p}候補</small></div>`).join('')}</div>`;if(!r.length){$('results').innerHTML='<div class="empty">条件を満たす構成がありません。</div>';updateManualScore();return}let base=calc(d.s.weaponSkills,d.s).score;$('results').innerHTML=r.map((x,i)=>`<article class="result ${i===0?'top1':''}"><div class="rhead"><div><span class="rank">${i+1}位</span><div class="small">武器のみ比 +${base?((x.score/base-1)*100).toFixed(2):'0.00'}%</div></div><div><div class="score">期待火力<b>${x.score.toFixed(1)}</b></div><div class="result-actions"><button class="favorite-btn" data-save-fav="${i}">☆ お気に入り</button></div></div></div><div class="gear">${x.pieces.map(a=>`<div class="gear-card" data-armor-name="${esc(a.name)}" data-armor-part="${esc(a.part)}"><small>${esc(a.part)}</small><strong>${esc(a.monster)}</strong><span>${esc(a.name)}</span></div>`).join('')}</div>${x.drifts?.length?`<div class="small">錬成: ${x.drifts.map(esc).join(' / ')}</div>`:''}<div style="margin-top:7px">${Object.entries(x.skills).sort((a,b)=>(DB.skills[a[0]]?.displayCat||'').localeCompare(DB.skills[b[0]]?.displayCat||'','ja')).map(([n,l])=>skillChip(n,l,x.skills,d.s)).join('')}</div></article>`).join('');bindResultExtras();updateManualScore()}
-async function run(){let b=$('run');b.disabled=true;setProgress(.01,'探索を開始しています…');$('resultBadge').textContent='探索中';await tick();try{let d=await optimize();renderResults(d)}catch(e){$('results').innerHTML=`<div class="notice" style="border-color:var(--danger)">${esc(e.message)}</div>`;$('resultBadge').textContent='エラー'}finally{b.disabled=false;setTimeout(()=>setProgress(0,'待機中'),1200)}}
+async function run(){let b=$('run');b.disabled=true;setProgress(.01,'探索を開始しています…');$('resultBadge').textContent='探索中';await tick();try{syncPresetState();renderCatalog();renderSpecChips();let d=await optimize(currentSettings());renderResults(d)}catch(e){$('results').innerHTML=`<div class="notice" style="border-color:var(--danger)">${esc(e.message)}</div>`;$('resultBadge').textContent='エラー'}finally{b.disabled=false;setTimeout(()=>setProgress(0,'待機中'),1200)}}
 function refreshForWeapon(){for(let n of [...state.candidate])if(!validity(n).ok)state.candidate.delete(n);for(let n of Object.keys(state.weapon))if(!validity(n).ok)delete state.weapon[n];for(let n of Object.keys(state.required))if(!validity(n).ok)delete state.required[n];renderCatalog();renderSpecChips();updateManualScore()}
 function init(){for(let c of DB.displayCats)if(c!=='攻撃')state.collapsed.add(c);$('weaponType').innerHTML=WEAPONS.map(w=>`<option>${w}</option>`).join('');$('element').value='水';$('skillDatalist').innerHTML=Object.keys(DB.skills).sort((a,b)=>a.localeCompare(b,'ja')).map(n=>`<option value="${esc(n)}"></option>`).join('');$('dbBadge').textContent=`防具 ${DB.armors.length} / スキル ${Object.keys(DB.skills).length} / DB ${DB.dataDate}`;initDefaults();renderCatalog();renderSpecChips();initManualArmor();renderManualSkillChips();renderPresetSelects();renderFavorites();updateManualScore();
 $('catalogSearch').addEventListener('input',renderCatalog);$('selectFire').addEventListener('click',()=>{initDefaults();renderCatalog()});$('clearCandidates').addEventListener('click',()=>{state.candidate.clear();renderCatalog()});$('weaponType').addEventListener('change',refreshForWeapon);$('element').addEventListener('change',()=>{if(!DAMAGE_ELEMS.includes($('element').value))$('elemWeak').value='0';refreshForWeapon()});['atk','elem','aff','wexRate','elemWeak','weakMod','condRate'].forEach(id=>$(id).addEventListener('change',updateManualScore));$('addWeapon').addEventListener('click',()=>{addSpec('weapon');updateManualScore()});$('addRequired').addEventListener('click',()=>addSpec('required'));$('addExcluded').addEventListener('click',()=>addSpec('excluded'));$('run').addEventListener('click',run);
 $('saveWeaponPreset').addEventListener('click',saveWeaponPreset);$('loadWeaponPreset').addEventListener('click',loadWeaponPreset);$('deleteWeaponPreset').addEventListener('click',()=>namedDelete('weaponPresets',$('weaponPresetSelect').value));$('saveCandidatePreset').addEventListener('click',saveCandidatePreset);$('loadCandidatePreset').addEventListener('click',loadCandidatePreset);$('deleteCandidatePreset').addEventListener('click',()=>namedDelete('candidatePresets',$('candidatePresetSelect').value));$('saveSpecPreset').addEventListener('click',saveSpecPreset);$('loadSpecPreset').addEventListener('click',loadSpecPreset);$('deleteSpecPreset').addEventListener('click',()=>namedDelete('specPresets',$('specPresetSelect').value));
 document.querySelectorAll('input[name="manualMode"]').forEach(x=>x.addEventListener('change',switchManualMode));$('manualSkillAdd').addEventListener('click',addManualSkill);$('manualSkillInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addManualSkill()}});}
-window.__APPTEST__={state,currentSettings,validity,calc,optimize,filteredByPart,DB,renderCatalog,addSpec,saveFavorite,renderFavorites,updateManualScore,storageGet,storageSet};document.addEventListener('DOMContentLoaded',init);
+window.__APPTEST__={state,currentSettings,validity,calc,optimize,filteredByPart,DB,renderCatalog,addSpec,saveFavorite,renderFavorites,updateManualScore,storageGet,storageSet,syncPresetState};document.addEventListener('DOMContentLoaded',init);
 </script></body></html>
